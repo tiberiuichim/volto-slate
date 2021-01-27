@@ -15,13 +15,27 @@ import {
   hasRangeSelection,
   toggleInlineFormat,
   toggleMark,
-  MIMETypeName,
 } from 'volto-slate/utils'; // fixSelection,
 import EditorContext from './EditorContext';
 
 import isHotkey from 'is-hotkey';
 
 import './less/editor.less';
+
+const handleEditorRef = (editor, ref) => {
+  if (typeof ref === 'function') {
+    ref(editor);
+  } else if (typeof ref === 'object') {
+    ref.current = editor;
+  }
+
+  // TODO: solve issue: the following console.log prints 'undefined' in Jest
+  // unit tests (maybe the issue isrelated to JSDOM) and in the browser, without
+  // any changes it prints 'object'
+  console.log('typeof editor.htmlTagsToSlate', typeof editor.htmlTagsToSlate);
+
+  return editor;
+};
 
 class SlateEditor extends Component {
   constructor(props) {
@@ -37,8 +51,13 @@ class SlateEditor extends Component {
     this.savedSelection = null;
     this.mouseDown = null;
 
+    const editor = handleEditorRef(
+      this.createEditor(),
+      this.props.testingEditorRef,
+    );
+
     this.state = {
-      editor: this.createEditor(),
+      editor,
       showToolbar: false,
     };
 
@@ -57,10 +76,6 @@ class SlateEditor extends Component {
     const defaultExtensions = slate.extensions;
     const raw = withHistory(withReact(createEditor()));
 
-    // TODO: also look for MIME Types in the files case
-    raw.dataTransferFormatsOrder = ['text/html', 'files', 'text/plain'];
-    raw.dataTransferHandlers = {};
-
     const plugins = [...defaultExtensions, ...this.props.extensions];
     const editor = plugins.reduce((acc, apply) => apply(acc), raw);
 
@@ -71,40 +86,6 @@ class SlateEditor extends Component {
 
     editor.getSavedSelection = this.getSavedSelection;
     editor.setSavedSelection = this.setSavedSelection;
-
-    const { insertData } = editor;
-
-    // TODO: update and improve comments & docs related to
-    // `dataTransferFormatsOrder` and `dataTransferHandlers` features
-    editor.insertData = (data) => {
-      if (editor.beforeInsertData) {
-        editor.beforeInsertData(data);
-      }
-
-      for (let i = 0; i < editor.dataTransferFormatsOrder.length; ++i) {
-        const x = editor.dataTransferFormatsOrder[i];
-        if (x === 'files') {
-          const { files } = data;
-          if (files && files.length > 0) {
-            // or handled here
-            return editor.dataTransferHandlers['files'](files);
-          }
-          continue;
-        }
-        const satisfyingFormats = data.types.filter((y) =>
-          new MIMETypeName(x).matches(y),
-        );
-        for (let j = 0; j < satisfyingFormats.length; ++j) {
-          const y = satisfyingFormats[j];
-          if (editor.dataTransferHandlers[x](data.getData(y), y)) {
-            // handled here
-            return true;
-          }
-        }
-      }
-      // not handled until this point
-      return insertData(data);
-    };
 
     return editor;
   }
@@ -162,11 +143,17 @@ class SlateEditor extends Component {
       'selectionchange',
       this.onDOMSelectionChange,
     );
+    handleEditorRef(null, this.props.testingEditorRef);
   }
 
   componentDidUpdate(prevProps) {
     if (!isEqual(prevProps.extensions, this.props.extensions)) {
-      this.setState({ editor: this.createEditor() });
+      this.setState({
+        editor: handleEditorRef(
+          this.createEditor(),
+          this.props.testingEditorRef,
+        ),
+      });
       return;
     }
 
@@ -215,11 +202,8 @@ class SlateEditor extends Component {
       (acc, apply) => apply(acc),
       this.state.editor,
     );
-    this.editor = editor;
 
-    if (testingEditorRef) {
-      testingEditorRef.current = editor;
-    }
+    this.editor = handleEditorRef(editor, testingEditorRef);
 
     // debug-values are `data-` HTML attributes in withTestingFeatures HOC
 
@@ -326,10 +310,38 @@ SlateEditor.defaultProps = {
   className: '',
 };
 
+// console.log('SUPER OBJECT', {
+//   __JEST__,
+//   'g J': global.__JEST__,
+//   'w J': window.__JEST__,
+//   // __SERVER__,
+//   'g S': global.__SERVER__,
+//   'w S': window._SERVER__,
+//   // __CLIENT__,
+//   'g C': global.__CLIENT__,
+//   'w C': window.__CLIENT__,
+//   global,
+//   // __SERVER__:        RefernceError: __SERVER__ is not defined
+//   // the same with __CLIENT__
+// });
+
+// SUPER OBJECT {
+//       __JEST__: true,
+//       'g J': true,
+//       'w J': true,
+//       'g S': undefined,
+//       'w S': undefined,
+//       'g C': true,
+//       'w C': true,
+//       global: Window {
+
+// console.log('ABC', (__CLIENT__ && window?.Cypress) || __JEST__);
+
 export default connect((state, props) => {
   return {};
 })(
-  __CLIENT__ && window?.Cypress
+  // Cypress || Jest (most probably JSDOM) environment
+  (__CLIENT__ && window?.Cypress) || global.__JEST__
     ? withTestingFeatures(SlateEditor)
     : SlateEditor,
 );
