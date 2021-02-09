@@ -2,11 +2,11 @@ import { castArray } from 'lodash';
 import { Editor, Transforms, Range, Node } from 'slate';
 import { settings } from '~/config';
 import { ReactEditor } from 'slate-react';
-import { isCursorInList } from 'volto-slate/utils';
-import { LI } from 'volto-slate/constants';
+import { isCursorInList, defaultListItemValue } from 'volto-slate/utils';
 
 /**
- * Get the nodes with a type included in `types` in the selection (from root to leaf).
+ * Get the nodes with a type included in `types` in the selection (from root to
+ * leaf).
  *
  * @param {} editor
  * @param {} types
@@ -24,7 +24,8 @@ export function getSelectionNodesByType(editor, types, options = {}) {
 }
 
 /**
- * Is there a node with a type included in `types` in the selection (from root to leaf).
+ * Is there a node with a type included in `types` in the selection (from root
+ * to leaf)?
  */
 export function isNodeInSelection(editor, types, options = {}) {
   const [match] = getSelectionNodesByType(editor, types, options);
@@ -46,8 +47,6 @@ export function getSelectionNodesArrayByType(editor, types, options = {}) {
  * getMaxRange.
  *
  * @param {} editor
- *
- * TODO: is [0] ok as a path?
  */
 export function getMaxRange(editor) {
   const maxRange = {
@@ -70,6 +69,14 @@ export function selectAll(editor) {
 // Range.isCollapsed(editor.selection) &&
 // Point.equals(editor.selection.anchor, Editor.start(editor, []))
 
+export function pathIsAtStart(path) {
+  return path.every((x) => x === 0);
+}
+
+export function pointIsAtStart(point) {
+  return point.offset > 0 ? false : pathIsAtStart(point.path);
+}
+
 /**
  * isCursorAtBlockStart.
  *
@@ -80,9 +87,7 @@ export function isCursorAtBlockStart(editor) {
 
   if (editor.selection && Range.isCollapsed(editor.selection)) {
     const { anchor } = editor.selection;
-    return anchor.offset > 0
-      ? false
-      : anchor.path.reduce((acc, x) => acc + x, 0) === 0;
+    return pointIsAtStart(anchor);
     // anchor.path.length === 2 &&
   }
   return false;
@@ -114,13 +119,6 @@ export function isCursorAtBlockEnd(editor) {
   }
   return false;
 }
-
-const defaultListItemValue = () => {
-  const { slate } = settings;
-  const dv = slate.defaultValue();
-  dv[0].type = LI;
-  return dv;
-};
 
 /**
  * getFragmentFromStartOfSelectionToEndOfEditor.

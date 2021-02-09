@@ -2,6 +2,7 @@
 import { Editor, Transforms, Text } from 'slate'; // Range, RangeRef
 import { settings } from '~/config';
 import { deconstructToVoltoBlocks } from 'volto-slate/utils';
+import { LI } from 'volto-slate/constants';
 import _ from 'lodash';
 
 // case sensitive; first in an inner array is the default and preffered format
@@ -10,6 +11,13 @@ const formatAliases = [
   ['strong', 'b'],
   ['em', 'i'],
 ];
+
+export const defaultListItemValue = () => {
+  const { slate } = settings;
+  const dv = slate.defaultValue();
+  dv[0].type = LI;
+  return dv;
+};
 
 /**
  * Is it text? Is it whitespace (space, newlines, tabs) ?
@@ -167,7 +175,7 @@ export const toggleBlock = (editor, format) => {
  * Applies a block format unto a list item. Will split the list and deconstruct the
  * block
  */
-export const toggleFormatAsListItem = (editor, format) => {
+const toggleFormatAsListItem = (editor, format) => {
   const { slate } = settings;
   Transforms.unwrapNodes(editor, {
     match: (n) => slate.listTypes.includes(n.type),
@@ -184,7 +192,7 @@ export const toggleFormatAsListItem = (editor, format) => {
 /*
  * Toggles between list types by exploding the block
  */
-export const switchListType = (editor, format) => {
+const switchListType = (editor, format) => {
   const { slate } = settings;
   Transforms.unwrapNodes(editor, {
     match: (n) => slate.listTypes.includes(n.type),
