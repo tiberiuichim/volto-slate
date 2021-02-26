@@ -1,5 +1,118 @@
 /* eslint no-console: ["error", { allow: ["log"] }] */
 
+Cypress.Commands.add(
+  'justVisible',
+  { prevSubject: 'element' },
+  (subject, options) => {
+    // let arr = [];
+    for (let el of subject) {
+      if (Cypress.dom.isVisible(el)) {
+        return el;
+        // arr.push(el);
+      }
+    }
+    // return arr;
+  },
+);
+
+/**
+ * Checks if the subject (expected to be a slate editor element) contains focus or is focused itself.
+ */
+Cypress.Commands.add(
+  'slateEditorShouldBeFocused',
+  { prevSubject: 'element' },
+  (subject, options) => {
+    // the last Slate block should be focused
+    return cy
+      .wrap(subject)
+      .then((editorElement) => {
+        return cy.focused().then((focusedEl) => {
+          return Cypress.$.contains(editorElement[0], focusedEl[0]);
+        });
+      })
+      .should('eq', true);
+  },
+);
+
+/**
+ * Slate commands taken from this page because of that issue:
+ * https://github.com/ianstormtaylor/slate/issues/3476
+ */
+
+Cypress.Commands.add('getEditor', (selector) => {
+  return cy.get(selector).click();
+});
+
+Cypress.Commands.add(
+  'typeInSlate',
+  { prevSubject: 'element' },
+  (subject, text) => {
+    return (
+      cy
+        .wrap(subject)
+        .then((subject) => {
+          subject[0].dispatchEvent(
+            new InputEvent('beforeinput', {
+              inputType: 'insertText',
+              data: text,
+            }),
+          );
+          return subject;
+        })
+        // TODO: do this only for Electron-based browser which does not understand instantaneously
+        // that the user inserted some text in the block
+        .wait(1000)
+    );
+  },
+);
+
+Cypress.Commands.add('clearInSlate', { prevSubject: true }, (subject) => {
+  return cy.wrap(subject).then((subject) => {
+    subject[0].dispatchEvent(
+      new InputEvent('beforeinput', { inputType: 'deleteHardLineBackward' }),
+    );
+    return subject;
+  });
+});
+
+Cypress.Commands.add(
+  'selectAllAndOpenHoveringToolbar',
+  { prevSubject: true },
+  (subject) => {
+    // select all contents of slate block and open hovering toolbar
+    return cy.wrap(subject).find('span:first').type('{selectall}').dblclick();
+  },
+);
+
+// TODO: make this command chainable (so that it passes the `subject` to the next chained command)
+Cypress.Commands.add('lineBreakInSlate', { prevSubject: true }, (subject) => {
+  return (
+    cy
+      .wrap(subject)
+      .then((subject) => {
+        subject[0].dispatchEvent(
+          new InputEvent('beforeinput', { inputType: 'insertLineBreak' }),
+        );
+        return subject;
+      })
+      // TODO: do this only for Electron-based browser which does not understand instantaneously
+      // that the block was split
+      .wait(1000)
+  );
+});
+
+Cypress.Commands.add('clearAllInSlate', { prevSubject: true }, (subject) => {
+  // TODO: do not hardcode this 10 here
+  for (let i = 0; i < 10; ++i) {
+    cy.wrap(subject).then((subject) => {
+      subject[0].dispatchEvent(
+        new InputEvent('beforeinput', { inputType: 'deleteHardLineBackward' }),
+      );
+      return subject;
+    });
+  }
+});
+
 // --- AUTOLOGIN -------------------------------------------------------------
 Cypress.Commands.add('autologin', () => {
   let api_url, user, password;
@@ -144,41 +257,6 @@ Cypress.Commands.add('removeContent', (path) => {
       body: {},
     })
     .then(() => console.log(`${path} removed`));
-});
-
-Cypress.Commands.add('typeInSlate', { prevSubject: true }, (subject, text) => {
-  return (
-    cy
-      .wrap(subject)
-      .then((subject) => {
-        subject[0].dispatchEvent(
-          new InputEvent('beforeinput', {
-            inputType: 'insertText',
-            data: text,
-          }),
-        );
-        return subject;
-      })
-      // TODO: do this only for Electron-based browser which does not understand instantaneously
-      // that the user inserted some text in the block
-      .wait(1000)
-  );
-});
-
-Cypress.Commands.add('lineBreakInSlate', { prevSubject: true }, (subject) => {
-  return (
-    cy
-      .wrap(subject)
-      .then((subject) => {
-        subject[0].dispatchEvent(
-          new InputEvent('beforeinput', { inputType: 'insertLineBreak' }),
-        );
-        return subject;
-      })
-      // TODO: do this only for Electron-based browser which does not understand instantaneously
-      // that the block was split
-      .wait(1000)
-  );
 });
 
 // --- SET WORKFLOW ----------------------------------------------------------

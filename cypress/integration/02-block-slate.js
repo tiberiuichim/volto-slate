@@ -1,4 +1,4 @@
-import { slateBeforeEach, slateAfterEach, createSlateBlock } from '../support';
+import { slateBeforeEach, createSlateBlock, slateAfterEach } from '../support';
 
 describe('Block Tests', () => {
   beforeEach(slateBeforeEach);
@@ -14,7 +14,7 @@ describe('Block Tests', () => {
 
     // Save
     cy.get('#toolbar-save').click();
-    cy.url().should('eq', Cypress.config().baseUrl + '/cypress/my-page');
+    cy.url().should('eq', Cypress.config().baseUrl + '/my-page');
 
     // then the page view should contain our changes
     cy.get('#page-document p').contains('Hello Cypress World!');
